@@ -1,4 +1,4 @@
-import CharStackExceptions.CharStackEmptyException;
+import CharStackExceptions.*;
 
 // Source code for stack manager:
 
@@ -13,6 +13,13 @@ public class StackManager {
 	// Semaphore declarations. Insert your code in the following:
 	// ...
 	// ...
+
+	// TASK 2:
+	private static Semaphore semaphore = new Semaphore(1);// 1 because only one
+															// thread can access
+															// the stack at a
+															// time
+
 	// The main()
 	public static void main(String[] argv) {
 		// Some initial stats...
@@ -64,8 +71,8 @@ public class StackManager {
 					+ ".");
 			System.out.println("Final value of stack top-1 = "
 					+ stack.getAt(stack.getTop() - 1) + ".");
-			//System.out.println("Stack access count = "
-			//		+ stack.getAccessCounter());
+			// System.out.println("Stack access count = "
+			// + stack.getAccessCounter());
 		} catch (InterruptedException e) {
 			System.out
 					.println("Caught InterruptedException: " + e.getMessage());
@@ -91,8 +98,22 @@ public class StackManager {
 				// Insert your code in the following:
 				// ...
 				// ...
-				System.out.println("Consumer thread [TID=" + this.iTID
-						+ "] pops character =" + this.copy);
+				try {
+					semaphore.Wait(); // enter critical section:
+					this.copy = CharStack.pop(); // pop top of stack
+
+				} catch (CharStackEmptyException fe) {
+					// fe.printStackTrace();
+					i--; // redo this iteration next time since it was "missed"
+				} catch (Exception e) {
+					e.printStackTrace();
+					i--; // redo this iteration next time since it was "missed"
+				} finally {
+					semaphore.Signal(); // end of critical section
+					System.out.println("Consumer thread [TID=" + this.iTID
+							+ "] pops character =" + this.copy);
+				}
+
 			}
 			System.out.println("Consumer thread [TID=" + this.iTID
 					+ "] terminates.");
@@ -112,8 +133,32 @@ public class StackManager {
 				// Insert your code in the following:
 				// ...
 				// ...
-				System.out.println("Producer thread [TID=" + this.iTID
-						+ "] pushes character =" + this.block);
+				try {
+					semaphore.Wait(); // enter critical section:
+					char top = CharStack.pick(); // read the top char in stack:
+					this.block = (char) (top + 1); // get the next character in
+													// the (ascii) alphabet.
+					CharStack.push(this.block); // push it onto the stack
+
+				} catch (CharStackEmptyException ee) {
+					this.block = 'a'; // if the stack is empty at pick() then
+										// the char 'a' must be written
+					try {
+						CharStack.push(this.block); // push it onto the stack
+					} catch (CharStackFullException e) {
+						i--; // redo this iteration next time since it was
+								// "missed"
+					}
+
+				} catch (CharStackFullException e) {
+					i--; // redo this iteration next time since it was "missed"
+				} catch (Exception e) {
+					e.printStackTrace();
+				} finally {
+					semaphore.Signal(); // end of critical section
+					System.out.println("Producer thread [TID=" + this.iTID
+							+ "] pushes character =" + this.block);
+				}
 			}
 			System.out.println("Producer thread [TID=" + this.iTID
 					+ "] terminates.");
@@ -133,6 +178,34 @@ public class StackManager {
 				// printed in the required format.
 				// ...
 				// ...
+				try {
+					semaphore.Wait(); // enter the critical section:
+					System.out.println("Stack S = ([" + stack.getAt(0) + "],["
+							+ stack.getAt(1) + "],[" + stack.getAt(2) + "],["
+							+ stack.getAt(3) + "],[" + stack.getAt(4) + "],["
+							+ stack.getAt(5) + "],[" + stack.getAt(6) + "],["
+							+ stack.getAt(7) + "],[" + stack.getAt(8) + "],["
+							+ stack.getAt(9) + "])");
+				} catch (CharStackInvalidAceessException e) {
+					e.printStackTrace();
+				} finally {
+					semaphore.Signal(); // end of critical section
+				}
+
+				// TASK 2: IMPORTANT NOTE - as it stands now the CharStackProber
+				// csp thread's 6 loop iterations could execute at any time in
+				// the threads order of execution (and often they execute last,
+				// all 6 of them). That
+				// seems to me to be a problem: we would like to probe between
+				// every--but it's not
+				// written in the question and the code that we have to take
+				// care of this. A more meaningful architecture would have been
+				// to trigger the stack probing routine not within its own
+				// thread but rather as a part of the Producer and Consumer
+				// threads (called from within them). But again such a
+				// modification is not requested in the question, and by chance
+				// probing occasionally executes between other threads in some
+				// sample runs.
 			}
 		}
 	} // class CharStackProber
