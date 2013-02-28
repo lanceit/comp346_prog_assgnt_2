@@ -1,3 +1,4 @@
+package main_package;
 class BaseThread extends Thread {
 	/*
 	 * Data members
